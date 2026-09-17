@@ -1,0 +1,10 @@
+import { Resource, Topic } from "@/lib/types";
+export const topics: Topic[] = [
+  ["complexity","Time Complexity","Measure efficient solutions",90],["arrays","Arrays","Traversal, prefix sums and patterns",160],["strings","Strings","Character and substring patterns",140],["hashing","Hashing","Maps and sets for fast lookup",130],["two-pointers","Two Pointers","Pair and window traversal",130],["sliding-window","Sliding Window","Fixed and variable windows",140],["binary-search","Binary Search","Search spaces and boundaries",140],["linked-lists","Linked Lists","Pointers and list operations",150],["stack","Stack","LIFO patterns",110],["queue","Queue","FIFO and monotonic queues",110],["recursion","Recursion","Base cases and call trees",150],["backtracking","Backtracking","Explore and undo choices",150],["trees","Trees","Traversal and tree properties",180],["bst","BST","Ordered tree operations",130],["heap","Heap","Priority queues",130],["graphs","Graphs","BFS, DFS and representations",220],["greedy","Greedy","Local-choice proofs",150],["dynamic-programming","Dynamic Programming","States and transitions",240]
+].map(([id,name,description,estimatedMinutes]) => ({ id, name, description, estimatedMinutes })) as Topic[];
+export const seededResources: Resource[] = [
+  { id:"algo-playlist", title:"DSA Foundations playlist", type:"YouTube playlist", url:"https://www.youtube.com", topicIds:["complexity","arrays","strings","hashing","two-pointers","binary-search"], sections:"Arrays: videos 4–8 · Binary Search: videos 18–22" },
+  { id:"patterns", title:"Coding Patterns problem sheet", type:"Problem sheet", url:"https://leetcode.com", topicIds:["arrays","hashing","two-pointers","sliding-window","binary-search"], sections:"One curated set per topic" },
+  { id:"java-docs", title:"Java Collections guide", type:"Documentation", url:"https://docs.oracle.com", topicIds:["hashing","stack","queue","heap"], sections:"Maps, deques, priority queues" },
+  { id:"graph-article", title:"Graph traversal explained", type:"Article", url:"https://cp-algorithms.com", topicIds:["graphs","trees","bst"], sections:"BFS and DFS" }
+];

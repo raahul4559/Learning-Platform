@@ -1,0 +1,1 @@
+import { AppShell } from "@/components/app-shell";import { PlannerGuard } from "@/components/planner-guard";import { Practice } from "@/components/practice";export default function Page(){return <PlannerGuard><AppShell><Practice/></AppShell></PlannerGuard>}

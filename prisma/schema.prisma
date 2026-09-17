@@ -1,0 +1,58 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String          @id @default(cuid())
+  email     String          @unique
+  createdAt DateTime        @default(now())
+  profile   Profile?
+  progress  TopicProgress[]
+}
+
+model Profile {
+  id           String @id @default(cuid())
+  userId       String @unique
+  language     String
+  level        String
+  goal         String
+  dailyMinutes Int
+  deadline     DateTime
+  preference   String
+  user         User   @relation(fields: [userId], references: [id])
+}
+
+model Resource {
+  id       String          @id @default(cuid())
+  title    String
+  type     String
+  url      String
+  mappings ResourceTopic[]
+}
+
+model ResourceTopic {
+  id              String   @id @default(cuid())
+  resourceId      String
+  topicId         String
+  sectionMetadata Json?
+  resource        Resource @relation(fields: [resourceId], references: [id])
+}
+
+model TopicProgress {
+  id               String @id @default(cuid())
+  userId           String
+  topicId          String
+  completion       Int    @default(0)
+  assessmentScore  Int?
+  practiceAccuracy Int?
+  timeSpent        Int    @default(0)
+  mistakes         Int    @default(0)
+  user             User   @relation(fields: [userId], references: [id])
+
+  @@unique([userId, topicId])
+}
