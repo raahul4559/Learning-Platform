@@ -17,4 +17,11 @@ a { text-decoration:none; }
   .page-title { @apply text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl; }
   .page-subtitle { @apply mt-2 max-w-2xl text-base leading-7 text-slate-600; }
   .field { @apply mt-1.5 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100; }
+  .landing-button { @apply inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 text-sm font-bold text-white shadow-sm shadow-indigo-200 transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2; }
+  .landing-button-small { @apply min-h-10 rounded-lg px-3.5 py-2 text-xs sm:text-sm; }
+  .landing-button-secondary { @apply inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-3 text-sm font-bold text-slate-700 transition hover:border-slate-300 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2; }
+  .landing-eyebrow { @apply inline-flex items-center gap-2 rounded-full border border-indigo-100 bg-indigo-50 px-3 py-1.5 text-xs font-bold tracking-wide text-indigo-700; }
+  .section-label { @apply text-xs font-bold uppercase tracking-[.16em] text-indigo-600; }
+  .section-heading { @apply text-3xl font-extrabold leading-tight tracking-[-.04em] text-slate-950 sm:text-4xl; }
+  .avatar { @apply flex h-7 w-7 items-center justify-center rounded-full border-2 border-[#fbfbfe] text-[10px] font-bold text-slate-700; }
 }
