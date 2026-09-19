@@ -1,5 +1,5 @@
 import { seededResources, topics } from "@/lib/data";
-import { DailyTask, LearningPreference, LearningTask, Roadmap, RoadmapInput, RoadmapModule, RoadmapResource, RoadmapTopic, TopicDifficulty, TopicId, TopicStatus } from "@/lib/types";
+import { DailyTask, LearningPreference, LearningTask, ProblemDifficulty, Roadmap, RoadmapInput, RoadmapModule, RoadmapResource, RoadmapTopic, TopicDifficulty, TopicId, TopicStatus } from "@/lib/types";
 
 type Definition = { id: TopicId; moduleId: string; prerequisites: TopicId[]; difficulty: TopicDifficulty; learning: number; practice: number };
 
@@ -46,10 +46,11 @@ function buildTopic(definition: Definition, index: number, input: RoadmapInput):
   const learning = Math.max(30, Math.round(definition.learning * multiplier));
   const practice = Math.max(45, Math.round(definition.practice * multiplier));
   const problemCount = Math.max(1, Math.ceil(practice / 30));
+  const problemDifficulty: ProblemDifficulty = definition.difficulty === "Beginner" ? "Easy" : definition.difficulty === "Intermediate" ? "Medium" : "Hard";
   return {
     id: definition.id, name: base?.name ?? definition.id, description: base?.description ?? "Build a reliable problem-solving pattern.", prerequisites: definition.prerequisites, difficulty: definition.difficulty,
     estimatedLearningTime: learning, estimatedPracticeTime: practice, resources: resourcesFor(definition.id, input),
-    problems: Array.from({ length: problemCount }, (_, index) => ({ id: `${definition.id}-problem-${index + 1}`, title: `${base?.name ?? definition.id} pattern ${index + 1}`, description: index ? "Solve a variation and record the invariant." : "Implement the core pattern and explain its complexity.", difficulty: definition.difficulty, estimatedMinutes: Math.ceil(practice / problemCount) })),
+    problems: Array.from({ length: problemCount }, (_, index) => ({ id: `${definition.id}-problem-${index + 1}`, title: `${base?.name ?? definition.id} pattern ${index + 1}`, description: index ? "Solve a variation and record the invariant." : "Implement the core pattern and explain its complexity.", difficulty: problemDifficulty, estimatedMinutes: Math.ceil(practice / problemCount) })),
     assessment: { title: `${base?.name ?? definition.id} checkpoint`, description: "Check the invariant, edge cases, and complexity analysis.", estimatedMinutes: 15, passingScore: 70 },
     status: (index === 0 ? "up-next" : "locked") as TopicStatus,
   };

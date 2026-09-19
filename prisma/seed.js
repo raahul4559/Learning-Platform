@@ -111,10 +111,11 @@ async function main() {
       create: { slug: resourceSlug, title: `${title}: guided ${type.toLowerCase().replaceAll("_", " ")}`, description: `Seeded ${title} learning resource for the demo catalog.`, type, url: `https://example.org/demo/dsa/${slug}`, provider: "Demo Learning Library", metadata: { seeded: true } }
     });
     await prisma.resourceTopic.upsert({ where: { resourceId_topicId: { resourceId: resource.id, topicId: bySlug[slug].id } }, update: { position: 1 }, create: { resourceId: resource.id, topicId: bySlug[slug].id, position: 1, sectionMetadata: { recommended: true } } });
+    const problemDifficulty = difficulty === "BEGINNER" ? "EASY" : difficulty === "INTERMEDIATE" ? "MEDIUM" : "HARD";
     await prisma.problem.upsert({
       where: { slug: `demo-${slug}-problem` },
-      update: { title: problemTitles[slug], difficulty, topicId: bySlug[slug].id },
-      create: { slug: `demo-${slug}-problem`, topicId: bySlug[slug].id, title: problemTitles[slug], description: `A seeded practice prompt for ${title}. Explain the approach and its complexity.`, difficulty, estimatedMinutes: difficulty === "ADVANCED" ? 45 : 30, url: `https://example.org/demo/problems/${slug}`, platform: "Demo Practice", tags: [slug, "dsa"] }
+      update: { title: problemTitles[slug], difficulty: problemDifficulty, subtopic: "Core pattern", topicId: bySlug[slug].id },
+      create: { slug: `demo-${slug}-problem`, topicId: bySlug[slug].id, title: problemTitles[slug], description: `A seeded practice prompt for ${title}. Explain the approach and its complexity.`, difficulty: problemDifficulty, subtopic: "Core pattern", estimatedMinutes: difficulty === "ADVANCED" ? 45 : 30, url: `https://example.org/demo/problems/${slug}`, platform: "Demo Practice", tags: [slug, "dsa"] }
     });
     const assessment = await prisma.assessment.upsert({
       where: { slug: `demo-${slug}-quiz` },

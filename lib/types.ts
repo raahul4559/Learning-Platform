@@ -10,9 +10,10 @@ export interface Topic { id: TopicId; name: string; description: string; estimat
 export interface Resource { id: string; title: string; type: "YouTube playlist" | "Video" | "Article" | "Course" | "Problem sheet" | "Documentation"; url: string; topicIds: TopicId[]; sections?: string; }
 export interface LearningTask { id: string; topicId: TopicId; title: string; kind: TaskKind; minutes: number; completed: boolean; }
 export type TopicDifficulty = "Beginner" | "Intermediate" | "Advanced";
+export type ProblemDifficulty = "Easy" | "Medium" | "Hard";
 export type TopicStatus = "locked" | "available" | "up-next" | "completed";
 export interface RoadmapResource { id: string; title: string; type: string; url: string; recommendedFor: LearningPreference; }
-export interface PracticeTask { id: string; title: string; description: string; difficulty: TopicDifficulty; estimatedMinutes: number; }
+export interface PracticeTask { id: string; title: string; description: string; difficulty: ProblemDifficulty; estimatedMinutes: number; }
 export interface TopicAssessment { title: string; description: string; estimatedMinutes: number; passingScore: number; }
 export interface RoadmapTopic { id: TopicId; name: string; description: string; prerequisites: TopicId[]; difficulty: TopicDifficulty; estimatedLearningTime: number; estimatedPracticeTime: number; resources: RoadmapResource[]; problems: PracticeTask[]; assessment: TopicAssessment; status: TopicStatus; }
 export interface RoadmapModule { id: string; name: string; description: string; topics: RoadmapTopic[]; }

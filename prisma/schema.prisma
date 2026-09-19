@@ -29,6 +29,12 @@ enum Difficulty {
   ADVANCED
 }
 
+enum ProblemDifficulty {
+  EASY
+  MEDIUM
+  HARD
+}
+
 enum ResourceType {
   YOUTUBE_PLAYLIST
   VIDEO
@@ -214,7 +220,8 @@ model Problem {
   slug             String           @unique
   title            String
   description      String?
-  difficulty       Difficulty
+  difficulty       ProblemDifficulty
+  subtopic         String?
   estimatedMinutes Int
   url              String?
   platform         String?
