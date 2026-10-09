@@ -190,3 +190,5 @@ uploads/
 .DS_Store
 *.bak
 *.backup
+.vercel
+.env*
