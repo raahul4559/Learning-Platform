@@ -1,6 +1,7 @@
 import { AttemptStatus, ProgressStatus } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
-import { ensureActiveProgress } from "@/lib/learner-provisioning";
+import { ensureActiveProgress, topicPerformanceFromProgress } from "@/lib/learner-provisioning";
+import { detectWeakTopics } from "@/lib/mastery-engine";
 import { rankProblems } from "@/lib/practice-recommendation";
 import { prisma } from "@/lib/prisma";
 
@@ -31,7 +32,7 @@ export async function GET(request: NextRequest) {
     const roadmapTopics = progress.roadmap.modules.flatMap((module) => module.topics);
     const currentTopicId = topicProgress?.topicId ?? roadmapTopics.find((topic) => !progress.topics.some((entry) => entry.topicId === topic.id && entry.status === ProgressStatus.COMPLETED))?.id ?? roadmapTopics[0]?.id;
     if (!currentTopicId) return NextResponse.json({ error: "No topic found" }, { status: 404 });
-    const weakTopicIds = progress.topics.filter((item) => Math.min(item.assessmentScore ?? 100, item.practiceAccuracy ?? 100) < 80).map((item) => item.topicId);
+    const weakTopicIds = detectWeakTopics(progress.topics.map((item) => topicPerformanceFromProgress(item)), undefined, progress.topics.length).map((result) => result.topicId);
     const problems = await prisma.problem.findMany({ where: { topicId: { in: [...new Set([currentTopicId, ...weakTopicIds])] } }, include: { topic: true, attempts: { where: { userId: user.id }, select: { isSolved: true } } } });
     const ranked = rankProblems(problems.map((problem) => ({ id: problem.id, topicId: problem.topicId, difficulty: problem.difficulty, solved: problem.attempts.some((attempt) => attempt.isSolved), attempts: problem.attempts.length })), currentTopicId, weakTopicIds, topicProgress?.practiceAccuracy);
     const byId = new Map(problems.map((problem) => [problem.id, problem]));
@@ -52,7 +53,14 @@ export async function POST(request: NextRequest) {
     const attempts = await prisma.problemAttempt.findMany({ where: { userId: user.id, problemId: problem.id }, select: { isSolved: true, durationMinutes: true } });
     const solvedCount = attempts.filter((attempt) => attempt.isSolved).length;
     const accuracy = Math.round((solvedCount / attempts.length) * 100);
-    await prisma.topicProgress.upsert({ where: { userProgressId_topicId: { userProgressId: progress.id, topicId: problem.topicId } }, update: { status: ProgressStatus.IN_PROGRESS, practiceAccuracy: accuracy, mistakes: attempts.length - solvedCount, timeSpentMinutes: { increment: Math.max(0, Math.round(body.durationMinutes ?? problem.estimatedMinutes)) }, lastActivityAt: new Date() }, create: { userProgressId: progress.id, topicId: problem.topicId, status: ProgressStatus.IN_PROGRESS, practiceAccuracy: accuracy, mistakes: attempts.length - solvedCount, timeSpentMinutes: Math.max(0, Math.round(body.durationMinutes ?? problem.estimatedMinutes)), lastActivityAt: new Date() } });
+    const minutesSpent = Math.max(0, Math.round(body.durationMinutes ?? problem.estimatedMinutes));
+    // attemptCount/mistakes feed the mastery engine's own accuracy derivation (lib/mastery-engine.ts) —
+    // practiceAccuracy here stays only for any legacy reader of the raw stored value.
+    await prisma.topicProgress.upsert({
+      where: { userProgressId_topicId: { userProgressId: progress.id, topicId: problem.topicId } },
+      update: { status: ProgressStatus.IN_PROGRESS, practiceAccuracy: accuracy, mistakes: attempts.length - solvedCount, attemptCount: attempts.length, practiceCompleted: true, timeSpentMinutes: { increment: minutesSpent }, lastActivityAt: new Date() },
+      create: { userProgressId: progress.id, topicId: problem.topicId, status: ProgressStatus.IN_PROGRESS, practiceAccuracy: accuracy, mistakes: attempts.length - solvedCount, attemptCount: attempts.length, practiceCompleted: true, timeSpentMinutes: minutesSpent, lastActivityAt: new Date() },
+    });
     return NextResponse.json({ ok: true, accuracy });
   } catch (error) { console.error("POST /api/practice failed", error); return NextResponse.json({ error: "Practice data is unavailable" }, { status: 503 }); }
 }

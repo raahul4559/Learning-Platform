@@ -169,6 +169,44 @@ const problemTitles = {
   graphs: "Number of Islands", greedy: "Minimum Meeting Rooms", "dynamic-programming": "Coin Change"
 };
 
+/*
+ * Resource-to-roadmap mapping demo data: a single seeded YouTube playlist with
+ * curated video ranges per topic (e.g. Arrays -> videos 4-8). This is exactly
+ * the shape a future YouTube Data API or course-syllabus ingestion provider
+ * would produce — see lib/resource-mapping/ — except it's hand-curated here
+ * rather than extracted automatically.
+ */
+const javaDsaCourseSections = {
+  complexity: [1, 3], arrays: [4, 8], strings: [9, 12], hashing: [13, 14], "two-pointers": [15, 16], "sliding-window": [17, 17],
+  "binary-search": [18, 22], "linked-lists": [23, 23], recursion: [25, 30], stack: [31, 32], queue: [33, 33], backtracking: [34, 36],
+  trees: [40, 52], bst: [53, 57], heap: [58, 61], graphs: [62, 68], greedy: [69, 72], "dynamic-programming": [73, 80],
+};
+
+async function seedResourceMapping(bySlug) {
+  const resource = await prisma.resource.upsert({
+    where: { slug: "java-dsa-complete-course" },
+    update: { title: "Java DSA Complete Course", type: "YOUTUBE_PLAYLIST" },
+    create: {
+      slug: "java-dsa-complete-course", title: "Java DSA Complete Course",
+      description: "A seeded, topic-mapped YouTube playlist demonstrating the resource-to-roadmap mapping system.",
+      type: "YOUTUBE_PLAYLIST", url: "https://www.youtube.com/playlist?list=seeded-java-dsa-complete-course",
+      provider: "Seeded Demo Catalog", metadata: { seeded: true, totalVideos: 80 },
+    },
+  });
+  for (const [slug, [startIndex, endIndex]] of Object.entries(javaDsaCourseSections)) {
+    const topic = bySlug[slug];
+    if (!topic) continue;
+    const sectionMetadata = { unit: "video", startIndex, endIndex, label: `Videos ${startIndex}–${endIndex}` };
+    const existing = await prisma.resourceTopic.findUnique({ where: { resourceId_topicId: { resourceId: resource.id, topicId: topic.id } } });
+    const position = existing ? existing.position : (await prisma.resourceTopic.count({ where: { topicId: topic.id } })) + 1;
+    await prisma.resourceTopic.upsert({
+      where: { resourceId_topicId: { resourceId: resource.id, topicId: topic.id } },
+      update: { position, sectionMetadata },
+      create: { resourceId: resource.id, topicId: topic.id, position, sectionMetadata },
+    });
+  }
+}
+
 async function upsertTopic(topic, position) {
   const [slug, title, description, difficulty, learning, practice] = topic;
   return prisma.topic.upsert({
@@ -260,6 +298,8 @@ async function main() {
     })) });
   }
 
+  await seedResourceMapping(bySlug);
+
   const progress = await prisma.userProgress.upsert({
     where: { userId_roadmapId: { userId: user.id, roadmapId: "demo-dsa-roadmap" } },
     update: { status: "IN_PROGRESS", completion: 8 },
@@ -274,7 +314,7 @@ async function main() {
   await prisma.assessmentAttempt.upsert({ where: { id: "demo-assessment-attempt-1" }, update: { score: complexityQuiz.questions.length, maxScore: complexityQuiz.questions.length, answers: complexityAnswers }, create: { id: "demo-assessment-attempt-1", userId: user.id, assessmentId: complexityQuiz.id, status: "GRADED", score: complexityQuiz.questions.length, maxScore: complexityQuiz.questions.length, answers: complexityAnswers, startedAt: new Date("2026-09-03T08:00:00Z"), submittedAt: new Date("2026-09-03T08:08:00Z") } });
   await prisma.problemAttempt.upsert({ where: { id: "demo-problem-attempt-1" }, update: { isSolved: true }, create: { id: "demo-problem-attempt-1", userId: user.id, problemId: complexityProblem.id, status: "GRADED", isSolved: true, language: "Java", durationMinutes: 25, startedAt: new Date("2026-09-03T09:00:00Z"), submittedAt: new Date("2026-09-03T09:25:00Z"), notes: "Used operation counting." } });
 
-  console.log(`Seeded ${topics.length} DSA topics, resources, problems, quizzes, and a multi-plan demo learner.`);
+  console.log(`Seeded ${topics.length} DSA topics, resources, problems, quizzes, a mapped course (Java DSA Complete Course), and a multi-plan demo learner.`);
 }
 
 main().catch((error) => { console.error(error); process.exit(1); }).finally(() => prisma.$disconnect());

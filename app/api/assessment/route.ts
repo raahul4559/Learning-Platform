@@ -1,6 +1,7 @@
 import { AttemptStatus, ProgressStatus } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
-import { ensureActiveProgress } from "@/lib/learner-provisioning";
+import { ensureActiveProgress, topicPerformanceFromProgress } from "@/lib/learner-provisioning";
+import { calculateMastery, detectWeakTopics } from "@/lib/mastery-engine";
 import { prisma } from "@/lib/prisma";
 
 async function activeContext(email: string) {
@@ -26,13 +27,6 @@ function currentTopic(progress: ProgressWithContext) {
   const progressTopic = progress.topics.find((item) => item.status !== ProgressStatus.COMPLETED);
   return progressTopic ? allTopics.find((item) => item.id === progressTopic.topicId)
     : allTopics.find((item) => !progress.topics.some((entry) => entry.topicId === item.id && entry.status === ProgressStatus.COMPLETED)) ?? allTopics[0];
-}
-
-function weakAreasFor(topicProgress: { topicId: string; assessmentScore: number | null; practiceAccuracy: number | null; topic: { title: string } }[]) {
-  return topicProgress
-    .map((item) => ({ id: item.topicId, name: item.topic.title, score: Math.min(item.assessmentScore ?? 100, item.practiceAccuracy ?? 100) }))
-    .filter((item) => item.score < 80)
-    .sort((a, b) => a.score - b.score);
 }
 
 export async function GET(request: NextRequest) {
@@ -74,24 +68,24 @@ export async function POST(request: NextRequest) {
 
     await prisma.assessmentAttempt.create({ data: { userId: user.id, assessmentId: assessment.id, status: AttemptStatus.GRADED, score: rawScore, maxScore, answers, startedAt: now, submittedAt: now } });
 
+    // Mastery — not the raw pass/fail on this one quiz — decides whether the topic is actually
+    // "completed": it blends this assessment score with the learner's practice history so far.
     const existingTopicProgress = progress.topics.find((item) => item.topicId === assessment.topicId);
-    const status = passed ? ProgressStatus.COMPLETED : ProgressStatus.IN_PROGRESS;
-    const completion = passed ? 100 : Math.max(existingTopicProgress?.completion ?? 0, 50);
+    const mastery = calculateMastery({
+      ...topicPerformanceFromProgress(existingTopicProgress ?? null, assessment.topic?.title),
+      topicId: assessment.topicId, assessmentScore: percent,
+    });
+    const status = mastery.band === "progression" ? ProgressStatus.COMPLETED : ProgressStatus.IN_PROGRESS;
     const topicProgress = await prisma.topicProgress.upsert({
       where: { userProgressId_topicId: { userProgressId: progress.id, topicId: assessment.topicId } },
-      update: { status, completion, assessmentScore: percent, lastActivityAt: now, completedAt: passed ? now : null },
-      create: { userProgressId: progress.id, topicId: assessment.topicId, status, completion, assessmentScore: percent, lastActivityAt: now },
+      update: { status, completion: mastery.mastery, assessmentScore: percent, lastActivityAt: now, completedAt: status === ProgressStatus.COMPLETED ? now : null },
+      create: { userProgressId: progress.id, topicId: assessment.topicId, status, completion: mastery.mastery, assessmentScore: percent, lastActivityAt: now },
     });
 
     const allTopicProgress = await prisma.topicProgress.findMany({ where: { userProgressId: progress.id }, include: { topic: true } });
-    const weakAreas = weakAreasFor(allTopicProgress);
-    const topicTitle = assessment.topic?.title ?? "this topic";
-    const recommendation = percent < 60
-      ? `Revisit ${topicTitle} and retry the checkpoint after a short review.`
-      : !passed
-        ? `Add a few targeted practice problems on ${topicTitle} before moving on.`
-        : `You're ready to progress past ${topicTitle} — continue to the next topic.`;
+    const weakAreas = detectWeakTopics(allTopicProgress.map((item) => topicPerformanceFromProgress(item, item.topic.title)))
+      .map((result) => ({ id: result.topicId, name: allTopicProgress.find((item) => item.topicId === result.topicId)?.topic.title ?? result.topicId, score: result.mastery }));
 
-    return NextResponse.json({ score: percent, rawScore, maxScore, passed, topicMastery: topicProgress.completion, weakAreas, recommendation });
+    return NextResponse.json({ score: percent, rawScore, maxScore, passed, topicMastery: topicProgress.completion, band: mastery.band, reasons: mastery.reasons, recommendation: mastery.recommendation, weakAreas });
   } catch (error) { console.error("POST /api/assessment failed", error); return NextResponse.json({ error: "Assessment data is unavailable" }, { status: 503 }); }
 }

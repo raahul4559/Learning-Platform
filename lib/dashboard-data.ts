@@ -1,4 +1,6 @@
 import { ProgressStatus } from "@prisma/client";
+import { topicPerformanceFromProgress } from "@/lib/learner-provisioning";
+import { detectWeakTopics } from "@/lib/mastery-engine";
 import { prisma } from "@/lib/prisma";
 
 export type DashboardTask = { id: string; title: string; kind: "learn" | "practice" | "review" | "assessment"; minutes: number; completed: boolean; topicId: string; moduleId?: string };
@@ -58,11 +60,8 @@ export async function getDashboardData(email: string, now = new Date()): Promise
   const orderedTopics = progress?.roadmap.modules.flatMap((module) => module.topics.map((topic) => ({ ...topic, module: module.title }))) ?? [];
   const currentTopic = currentProgress?.topic ?? orderedTopics.find((topic) => topic.id === todayTasks[0]?.topicId) ?? orderedTopics[0];
   const currentIndex = orderedTopics.findIndex((topic) => topic.id === currentTopic?.id);
-  const weakTopics = topicProgress
-    .map((item) => ({ id: item.topic.id, name: item.topic.title, score: Math.min(item.assessmentScore ?? 100, item.practiceAccuracy ?? 100) }))
-    .filter((item) => item.score < 80)
-    .sort((a, b) => a.score - b.score)
-    .slice(0, 3);
+  const weakTopics = detectWeakTopics(topicProgress.map((item) => topicPerformanceFromProgress(item, item.topic.title)))
+    .map((result) => ({ id: result.topicId, name: topicProgress.find((item) => item.topicId === result.topicId)?.topic.title ?? result.topicId, score: result.mastery }));
 
   const studiedDays = new Set(user.studySessions.map((session) => isoDay(session.startedAt)));
   let streak = 0;

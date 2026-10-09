@@ -6,7 +6,13 @@ import { currentUser } from "@/lib/auth-store";
 
 type Question = { id: string; position: number; prompt: string; options: string[] };
 type AssessmentData = { assessment: { id: string; title: string; topicId: string; topic: string; passingScore: number; estimatedMinutes: number; questions: Question[] } };
-type SubmitResult = { score: number; rawScore: number; maxScore: number; passed: boolean; topicMastery: number; weakAreas: { id: string; name: string; score: number }[]; recommendation: string };
+type MasteryReason = { label: string; detail?: string };
+type MasteryRecommendation = { summary: string; actions: string[] };
+type SubmitResult = {
+  score: number; rawScore: number; maxScore: number; passed: boolean; topicMastery: number;
+  band: "revision" | "practice" | "progression"; reasons: MasteryReason[]; recommendation: MasteryRecommendation;
+  weakAreas: { id: string; name: string; score: number }[];
+};
 
 export function Assessment() {
   const [data, setData] = useState<AssessmentData | null>(null);
@@ -74,6 +80,14 @@ export function Assessment() {
           </div>
         </section>
         <section className="card mt-5">
+          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Why this mastery score</p>
+          <ul className="mt-3 space-y-1.5">
+            {result.reasons.map((reason) => (
+              <li key={reason.label} className="text-sm leading-6 text-slate-700"><span className="font-semibold text-slate-900">{reason.label}</span>{reason.detail ? <span className="text-slate-500"> — {reason.detail}</span> : null}</li>
+            ))}
+          </ul>
+        </section>
+        <section className="card mt-5">
           <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Weak areas</p>
           {result.weakAreas.length ? (
             <ul className="mt-3 space-y-2">
@@ -86,8 +100,11 @@ export function Assessment() {
           )}
         </section>
         <section className="card mt-5">
-          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Recommended next action</p>
-          <p className="mt-2 text-sm leading-6 text-slate-700">{result.recommendation}</p>
+          <p className="text-xs font-bold uppercase tracking-wide text-slate-500">Recommendation</p>
+          <p className="mt-2 text-sm font-semibold text-slate-900">{result.recommendation.summary}</p>
+          <ol className="mt-2 list-decimal space-y-1 pl-5">
+            {result.recommendation.actions.map((action) => <li key={action} className="text-sm leading-6 text-slate-700">{action}</li>)}
+          </ol>
         </section>
         <div className="mt-6 flex flex-wrap gap-3">
           <Link href="/learn" className="btn-secondary">Back to learning</Link>

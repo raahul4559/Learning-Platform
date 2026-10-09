@@ -215,9 +215,9 @@ model ResourceTopic {
 }
 
 model Problem {
-  id               String           @id @default(cuid())
+  id               String            @id @default(cuid())
   topicId          String
-  slug             String           @unique
+  slug             String            @unique
   title            String
   description      String?
   difficulty       ProblemDifficulty
@@ -227,9 +227,9 @@ model Problem {
   platform         String?
   tags             String[]
   starterCode      Json?
-  createdAt        DateTime         @default(now())
-  updatedAt        DateTime         @updatedAt
-  topic            Topic            @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  topic            Topic             @relation(fields: [topicId], references: [id], onDelete: Cascade)
   attempts         ProblemAttempt[]
 }
 
@@ -291,19 +291,25 @@ model UserProgress {
 }
 
 model TopicProgress {
-  id               String         @id @default(cuid())
-  userProgressId   String
-  topicId          String
-  status           ProgressStatus @default(NOT_STARTED)
-  completion       Int            @default(0)
-  assessmentScore  Int?
-  practiceAccuracy Int?
-  timeSpentMinutes Int            @default(0)
-  mistakes         Int            @default(0)
-  lastActivityAt   DateTime?
-  completedAt      DateTime?
-  userProgress     UserProgress   @relation(fields: [userProgressId], references: [id], onDelete: Cascade)
-  topic            Topic          @relation(fields: [topicId], references: [id], onDelete: Cascade)
+  id                String         @id @default(cuid())
+  userProgressId    String
+  topicId           String
+  status            ProgressStatus @default(NOT_STARTED)
+  completion        Int            @default(0)
+  assessmentScore   Int?
+  practiceAccuracy  Int?
+  timeSpentMinutes  Int            @default(0)
+  mistakes          Int            @default(0)
+  // Signals consumed by the adaptive mastery engine (lib/mastery-engine.ts) — tracked explicitly
+  // rather than inferred, so "completed" is a mastery decision and never just a raw status flag.
+  learningCompleted Boolean        @default(false)
+  practiceCompleted Boolean        @default(false)
+  attemptCount      Int            @default(0)
+  confidence        Int?
+  lastActivityAt    DateTime?
+  completedAt       DateTime?
+  userProgress      UserProgress   @relation(fields: [userProgressId], references: [id], onDelete: Cascade)
+  topic             Topic          @relation(fields: [topicId], references: [id], onDelete: Cascade)
 
   @@unique([userProgressId, topicId])
   @@index([topicId])

@@ -1,6 +1,24 @@
 import { ProgressStatus, RoadmapStatus } from "@prisma/client";
-import { buildTodayPlan, type PlanTopic } from "@/lib/daily-plan";
+import { adaptPlanTopics, buildTodayPlan, type PlanTopic } from "@/lib/daily-plan";
+import { calculateMastery, type MasteryResult, type TopicPerformance } from "@/lib/mastery-engine";
 import { prisma } from "@/lib/prisma";
+
+type StoredTopicProgress = { topicId: string; assessmentScore: number | null; mistakes: number; timeSpentMinutes: number; learningCompleted: boolean; practiceCompleted: boolean; attemptCount: number; confidence: number | null };
+
+/** Maps the DB's TopicProgress row onto the mastery engine's input contract. `null` means "never attempted". */
+export function topicPerformanceFromProgress(progress: StoredTopicProgress | null, topicName?: string): TopicPerformance {
+  return {
+    topicId: progress?.topicId ?? "",
+    topicName,
+    learningCompleted: progress?.learningCompleted ?? false,
+    practiceCompleted: progress?.practiceCompleted ?? false,
+    assessmentScore: progress?.assessmentScore ?? null,
+    attemptCount: progress?.attemptCount ?? 0,
+    mistakeCount: progress?.mistakes ?? 0,
+    timeSpent: progress?.timeSpentMinutes ?? 0,
+    confidence: progress?.confidence ?? null,
+  };
+}
 
 /**
  * Signup/onboarding only persist to the browser (lib/auth-store.ts, lib/store.ts).
@@ -42,7 +60,7 @@ export async function ensureTodayPlan(email: string, now = new Date()) {
   });
   if (!progress) return;
 
-  const orderedTopics: PlanTopic[] = progress.roadmap.modules.flatMap((module) =>
+  const rawTopics: PlanTopic[] = progress.roadmap.modules.flatMap((module) =>
     module.topics.map((topic) => ({
       id: topic.id,
       title: topic.title,
@@ -51,10 +69,21 @@ export async function ensureTodayPlan(email: string, now = new Date()) {
       estimatedPracticeMinutes: topic.estimatedPracticeMinutes,
       problems: topic.problems.map((problem) => ({ id: problem.id, title: problem.title, difficulty: problem.difficulty, estimatedMinutes: problem.estimatedMinutes })),
       assessment: topic.assessments[0] ? { id: topic.assessments[0].id, title: topic.assessments[0].title, estimatedMinutes: topic.assessments[0].estimatedMinutes } : null,
-      completed: progress.topics.find((item) => item.topicId === topic.id)?.status === ProgressStatus.COMPLETED,
+      completed: false,
     })),
   );
-  if (!orderedTopics.length) return;
+  if (!rawTopics.length) return;
+
+  // Mastery — not the raw TopicProgress.status flag — decides which topics are actually done and
+  // what today's work on an in-progress one should look like (generic next-step vs a recommended
+  // revision/practice/retake sequence). This is what lets yesterday's performance change today's plan.
+  const resultsByTopicId = new Map<string, MasteryResult>();
+  for (const topic of rawTopics) {
+    const stored = progress.topics.find((item) => item.topicId === topic.id);
+    if (!stored) continue;
+    resultsByTopicId.set(topic.id, calculateMastery(topicPerformanceFromProgress(stored, topic.title)));
+  }
+  const orderedTopics = adaptPlanTopics(rawTopics, resultsByTopicId);
   const startIndex = Math.max(0, orderedTopics.findIndex((topic) => !topic.completed));
   const dailyMinutes = user.profile?.dailyMinutes ?? 60;
   const drafts = buildTodayPlan(orderedTopics, dailyMinutes, startIndex);
