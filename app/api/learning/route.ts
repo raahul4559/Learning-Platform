@@ -1,8 +1,10 @@
 import { ProgressStatus } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
+import { ensureActiveProgress } from "@/lib/learner-provisioning";
 import { prisma } from "@/lib/prisma";
 
 async function activeContext(email: string) {
+  await ensureActiveProgress(email);
   return prisma.user.findUnique({
     where: { email: email.trim().toLowerCase() },
     include: {

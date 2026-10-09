@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { completeDashboardTask, getDashboardData } from "@/lib/dashboard-data";
+import { ensureActiveProgress, ensureTodayPlan } from "@/lib/learner-provisioning";
 
 export async function GET(request: NextRequest) {
   const email = request.nextUrl.searchParams.get("email");
   if (!email) return NextResponse.json({ error: "email is required" }, { status: 400 });
   try {
+    await ensureActiveProgress(email);
+    await ensureTodayPlan(email);
     const dashboard = await getDashboardData(email);
     return dashboard ? NextResponse.json(dashboard) : NextResponse.json({ error: "No active roadmap found" }, { status: 404 });
   } catch (error) {

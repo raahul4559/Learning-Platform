@@ -1,9 +1,11 @@
 import { AttemptStatus, ProgressStatus } from "@prisma/client";
 import { NextRequest, NextResponse } from "next/server";
+import { ensureActiveProgress } from "@/lib/learner-provisioning";
 import { rankProblems } from "@/lib/practice-recommendation";
 import { prisma } from "@/lib/prisma";
 
 async function contextFor(email: string) {
+  await ensureActiveProgress(email);
   return prisma.user.findUnique({
     where: { email: email.trim().toLowerCase() },
     include: {
@@ -34,7 +36,7 @@ export async function GET(request: NextRequest) {
     const ranked = rankProblems(problems.map((problem) => ({ id: problem.id, topicId: problem.topicId, difficulty: problem.difficulty, solved: problem.attempts.some((attempt) => attempt.isSolved), attempts: problem.attempts.length })), currentTopicId, weakTopicIds, topicProgress?.practiceAccuracy);
     const byId = new Map(problems.map((problem) => [problem.id, problem]));
     return NextResponse.json({ currentTopicId, targetDifficulty: ranked[0]?.difficulty ?? "EASY", problems: ranked.map((rankedProblem) => { const problem = byId.get(rankedProblem.id)!; return { id: problem.id, title: problem.title, description: problem.description, difficulty: problem.difficulty, topic: problem.topic.title, subtopic: problem.subtopic, platform: problem.platform, url: problem.url, estimatedTime: problem.estimatedMinutes, tags: problem.tags, solved: rankedProblem.solved, attempts: rankedProblem.attempts }; }) });
-  } catch { return NextResponse.json({ error: "Practice data is unavailable" }, { status: 503 }); }
+  } catch (error) { console.error("GET /api/practice failed", error); return NextResponse.json({ error: "Practice data is unavailable" }, { status: 503 }); }
 }
 
 export async function POST(request: NextRequest) {
@@ -52,5 +54,5 @@ export async function POST(request: NextRequest) {
     const accuracy = Math.round((solvedCount / attempts.length) * 100);
     await prisma.topicProgress.upsert({ where: { userProgressId_topicId: { userProgressId: progress.id, topicId: problem.topicId } }, update: { status: ProgressStatus.IN_PROGRESS, practiceAccuracy: accuracy, mistakes: attempts.length - solvedCount, timeSpentMinutes: { increment: Math.max(0, Math.round(body.durationMinutes ?? problem.estimatedMinutes)) }, lastActivityAt: new Date() }, create: { userProgressId: progress.id, topicId: problem.topicId, status: ProgressStatus.IN_PROGRESS, practiceAccuracy: accuracy, mistakes: attempts.length - solvedCount, timeSpentMinutes: Math.max(0, Math.round(body.durationMinutes ?? problem.estimatedMinutes)), lastActivityAt: new Date() } });
     return NextResponse.json({ ok: true, accuracy });
-  } catch { return NextResponse.json({ error: "Practice data is unavailable" }, { status: 503 }); }
+  } catch (error) { console.error("POST /api/practice failed", error); return NextResponse.json({ error: "Practice data is unavailable" }, { status: 503 }); }
 }
