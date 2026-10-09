@@ -7,7 +7,8 @@ export async function GET(request: NextRequest) {
   try {
     const dashboard = await getDashboardData(email);
     return dashboard ? NextResponse.json(dashboard) : NextResponse.json({ error: "No active roadmap found" }, { status: 404 });
-  } catch {
+  } catch (error) {
+    console.error("GET /api/dashboard failed", error);
     return NextResponse.json({ error: "Dashboard data is unavailable" }, { status: 503 });
   }
 }
@@ -18,7 +19,8 @@ export async function PATCH(request: NextRequest) {
   try {
     const task = await completeDashboardTask(body.email, body.taskId, body.completed);
     return task ? NextResponse.json({ ok: true }) : NextResponse.json({ error: "Task not found" }, { status: 404 });
-  } catch {
+  } catch (error) {
+    console.error("PATCH /api/dashboard failed", error);
     return NextResponse.json({ error: "Dashboard data is unavailable" }, { status: 503 });
   }
 }

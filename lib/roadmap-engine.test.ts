@@ -52,4 +52,41 @@ describe("roadmap engine", () => {
     expect(() => generateRoadmap(input({ dailyTime: 29 }))).toThrow("dailyTime");
     expect(() => generateRoadmap(input({ deadline: "2026-11-30" }))).toThrow("deadline");
   });
+
+  it("orders every topic strictly after all of its prerequisites", () => {
+    const roadmap = generateRoadmap(input());
+    const allTopics = roadmap.modules.flatMap((module) => module.topics);
+    const indexById = new Map(allTopics.map((topic, index) => [topic.id, index]));
+    for (const topic of allTopics) {
+      for (const prerequisite of topic.prerequisites) {
+        expect(indexById.get(prerequisite)).toBeLessThan(indexById.get(topic.id)!);
+      }
+    }
+  });
+
+  it("schedules a prerequisite's tasks on or before the dependent topic's tasks", () => {
+    const roadmap = generateRoadmap(input());
+    const firstDateByTopic = new Map<string, string>();
+    for (const task of roadmap.dailyTasks) {
+      if (!firstDateByTopic.has(task.topicId)) firstDateByTopic.set(task.topicId, task.date);
+    }
+    const slidingWindow = roadmap.modules.flatMap((module) => module.topics).find((topic) => topic.id === "sliding-window")!;
+    for (const prerequisite of slidingWindow.prerequisites) {
+      expect(firstDateByTopic.get(prerequisite)! <= firstDateByTopic.get("sliding-window")!).toBe(true);
+    }
+  });
+
+  it("answers 'what should I study today' rather than only the full roadmap", () => {
+    const roadmap = generateRoadmap(input());
+    expect(roadmap.today.date).toBe("2026-12-01");
+    expect(roadmap.today.tasks.length).toBeGreaterThan(0);
+    expect(roadmap.today.tasks.every((task) => task.date === roadmap.today.date)).toBe(true);
+    expect(roadmap.today.message).toContain("Today:");
+  });
+
+  it("is a pure function of its input with no AI or randomness involved", () => {
+    const first = generateRoadmap(input());
+    const second = generateRoadmap(input());
+    expect(first).toEqual(second);
+  });
 });

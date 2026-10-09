@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     const roadmapTopic = allTopics.find((item) => item.id === topic?.id);
     if (!topic || !roadmapTopic) return NextResponse.json({ error: "No topic found" }, { status: 404 });
     return NextResponse.json({ topic: { id: topic.id, name: topic.title, description: topic.description, module: roadmapTopic.module, progress: progressTopic?.completion ?? 0, estimatedMinutes: topic.estimatedLearningMinutes, resources: roadmapTopic.resources.map((item) => ({ id: item.resource.id, title: item.resource.title, type: item.resource.type, url: item.resource.url })), assessment: roadmapTopic.assessments[0] ? { id: roadmapTopic.assessments[0].id, title: roadmapTopic.assessments[0].title, estimatedMinutes: roadmapTopic.assessments[0].estimatedMinutes } : null } });
-  } catch { return NextResponse.json({ error: "Learning data is unavailable" }, { status: 503 }); }
+  } catch (error) { console.error("GET /api/learning failed", error); return NextResponse.json({ error: "Learning data is unavailable" }, { status: 503 }); }
 }
 
 export async function PATCH(request: NextRequest) {
@@ -44,5 +44,5 @@ export async function PATCH(request: NextRequest) {
     await prisma.studySession.create({ data: { userId: user.id, userProgressId: progress.id, topicId: body.topicId, startedAt: now, endedAt: now, durationMinutes: 1, notes: body.outcome === "understood" ? "Learner marked this topic understood." : "Learner requested revision." } });
     if (body.outcome === "understood") await prisma.topicProgress.upsert({ where: { userProgressId_topicId: { userProgressId: progress.id, topicId: body.topicId } }, update: { status: ProgressStatus.IN_PROGRESS, completion: 50, lastActivityAt: now }, create: { userProgressId: progress.id, topicId: body.topicId, status: ProgressStatus.IN_PROGRESS, completion: 50, lastActivityAt: now } });
     return NextResponse.json({ ok: true });
-  } catch { return NextResponse.json({ error: "Learning data is unavailable" }, { status: 503 }); }
+  } catch (error) { console.error("PATCH /api/learning failed", error); return NextResponse.json({ error: "Learning data is unavailable" }, { status: 503 }); }
 }

@@ -17,6 +17,25 @@ const moduleDetails = {
 const topicById = new Map(topics.map((topic) => [topic.id, topic]));
 const levelMultiplier = { Beginner: 1, Basic: 0.85, Intermediate: 0.7, Advanced: 0.6 } as const;
 
+/** Topological sort so every topic is ordered after all of its prerequisites, regardless of source order. */
+function topologicalOrder(defs: Definition[]): Definition[] {
+  const byId = new Map(defs.map((definition) => [definition.id, definition]));
+  const visited = new Set<TopicId>();
+  const ordered: Definition[] = [];
+  function visit(definition: Definition) {
+    if (visited.has(definition.id)) return;
+    visited.add(definition.id);
+    for (const prerequisite of definition.prerequisites) {
+      const prerequisiteDefinition = byId.get(prerequisite);
+      if (prerequisiteDefinition) visit(prerequisiteDefinition);
+    }
+    ordered.push(definition);
+  }
+  for (const definition of defs) visit(definition);
+  return ordered;
+}
+const orderedDefinitions = topologicalOrder(definitions);
+
 const dayStart = (value: string) => {
   const result = new Date(`${value.slice(0, 10)}T00:00:00.000Z`);
   if (Number.isNaN(result.getTime())) throw new Error(`Invalid date: ${value}`);
@@ -87,8 +106,8 @@ export function generateRoadmap(input: RoadmapInput): Roadmap {
   const start = dayStart(input.startDate ?? new Date().toISOString());
   const deadline = dayStart(input.deadline);
   if (deadline < start) throw new Error("deadline must be on or after the start date");
-  const roadmapTopics = definitions.map((definition, index) => buildTopic(definition, index, input));
-  const modules: RoadmapModule[] = Object.entries(moduleDetails).map(([id, details]) => ({ id, ...details, topics: roadmapTopics.filter((topic) => definitions.find((definition) => definition.id === topic.id)?.moduleId === id) }));
+  const roadmapTopics = orderedDefinitions.map((definition, index) => buildTopic(definition, index, input));
+  const modules: RoadmapModule[] = Object.entries(moduleDetails).map(([id, details]) => ({ id, ...details, topics: roadmapTopics.filter((topic) => orderedDefinitions.find((definition) => definition.id === topic.id)?.moduleId === id) }));
   const dailyTasks = schedule(modules.flatMap((module) => module.topics.flatMap((topic) => workFor(topic, module.id))), start, deadline, input.dailyTime);
   const today = dailyTasks.filter((task) => task.date === dateKey(start));
   return { subject: input.subject, language: input.language, goal: input.goal, generatedAt: start.toISOString(), dailyTime: input.dailyTime, deadline: dateKey(deadline), modules, weeklySchedule: weekly(dailyTasks, start), dailyTasks, today: { date: dateKey(start), tasks: today, message: today.length ? `Today: ${today.map((task) => task.title).join(" · ")}` : dailyTasks[0] ? `Next up: ${dailyTasks[0].title}` : "Your available study time is below the first planned task." } };
